@@ -1,0 +1,8 @@
+build:
+  go build -v -o ./tmp/cli ./main.go
+
+run:
+  ./tmp/cli
+
+# run URL:
+# ./tmp/cli -url="{{URL}}"
