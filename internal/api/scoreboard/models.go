@@ -2,7 +2,7 @@ package scoreboard
 
 // UserStat - статистика пользователя
 type UserStat struct {
-	ID                    string `json:"id"`
+	ID                    int    `json:"id"`
 	Name                  string `json:"name"`
 	Gold                  int    `json:"gold"`
 	GoldRatingPos         int    `json:"gold_rating_pos"` // рейтинг по золоту
@@ -16,7 +16,7 @@ type UserStat struct {
 
 // GuildStat - статистика гильдии
 type GuildStat struct {
-	ID                     string `json:"id"`
+	ID                     int    `json:"id"`
 	GuildTag               string `json:"tag"`               // тег гильдии
 	Players                int    `json:"players"`           // количество участников
 	PlayersRatingPos       int    `json:"playes_rating_pos"` // рейтинг участникам (у ребят в Swagger указано поле как будто с ошибкой, но мало ли)

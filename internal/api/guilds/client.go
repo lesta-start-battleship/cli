@@ -6,30 +6,39 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"lesta-start-battleship/cli/internal/api/websocket"
+	"lesta-start-battleship/cli/internal/api/websocket/strategies"
+	"lesta-start-battleship/cli/storage/token"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
-
-	"lesta-start-battleship/cli/storage/token"
 )
 
 // Client - клиент для работы с API гильдий
 type Client struct {
 	baseURL    *url.URL
+	baseWsURL  *url.URL
 	httpClient *http.Client
 	tokenStore *token.Storage
 }
 
 // NewClient создает новый клиент
-func NewClient(baseURL string, tokens *token.Storage) (*Client, error) {
+func NewClient(baseURL string, baseWsURL string, tokens *token.Storage) (*Client, error) {
 	parsedURL, err := url.Parse(baseURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid base URL: %w", err)
 	}
+	parsedWsURL, err := url.Parse(baseWsURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid base WS URL: %w", err)
+	}
 
 	return &Client{
-		baseURL: parsedURL,
+		baseURL:   parsedURL,
+		baseWsURL: parsedWsURL,
+
 		httpClient: &http.Client{
 			Timeout: 15 * time.Second,
 		},
@@ -97,6 +106,29 @@ func (c *Client) doRequest(
 	}
 
 	return responseBody, nil
+}
+
+// Устанавливает WebSocket соединение по стандартному URL и переданному Path.
+//
+// Возвращает ошибку при отсутствие возможности установить соединение.
+func (c *Client) doWsConnect(path string) (*websocket.WebsocketClient, error) {
+	reqURL := c.baseWsURL.ResolveReference(&url.URL{Path: path})
+
+	header := http.Header{}
+	header.Set("Content-Type", "application/json")
+	access, refresh := c.tokenStore.GetToken()
+	if access != "" {
+		header.Set("Authorization", access)
+		log.Println(access)
+		header.Set("Refresh-Token", refresh)
+	}
+
+	wsClient, err := websocket.NewWebsocketClient(reqURL.String(), header, strategies.GuildChatStrategy{})
+	if err != nil {
+		return nil, fmt.Errorf("error connecting by websocket: %w", err)
+	}
+
+	return wsClient, nil
 }
 
 // GetMemberByUserID - получить инфо об участнике по user_id
@@ -269,7 +301,8 @@ func (c *Client) ExitGuild(ctx context.Context, tag string) error {
 
 // DeclareWar - объявление войны другой гильдии (вызвать может только владелец гильдии-инициатора)
 func (c *Client) DeclareWar(ctx context.Context, initiatorGuildID int,
-	targetGuildID int, ownerID int) (*DeclareWarResponse, error) {
+	targetGuildID int, ownerID int,
+) (*DeclareWarResponse, error) {
 	reqBody := DeclareWarRequest{
 		InitiatorGuildID: initiatorGuildID,
 		TargetGuildID:    targetGuildID,
@@ -336,7 +369,6 @@ func (c *Client) GetGuildWarList(
 	page int,
 	pageSize int,
 ) (*GuildWarListResponse, error) {
-
 	// параметры запроса
 	params := map[string]string{
 		"user_id":   strconv.Itoa(userID),
@@ -367,4 +399,18 @@ func (c *Client) GetGuildWarList(
 	}
 
 	return &response, nil
+}
+
+// Устанавливает WebSocket соединение с Гильдейским чатом по переданному GuildId.
+//
+// Возвращает ошибку при отсутствие возможности установить соединение.
+func (c *Client) JoinGuildChat(guildId int) (*websocket.WebsocketClient, error) {
+	path := fmt.Sprintf(PathConnectGuildChat, guildId)
+
+	client, err := c.doWsConnect(path)
+	if err != nil {
+		return nil, err
+	}
+
+	return client, nil
 }

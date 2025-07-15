@@ -41,7 +41,7 @@ func NewOAuthModel(parent tea.Model, provider string, client *clientdeps.Client,
 }
 
 func (m *OAuthModel) Init() tea.Cmd {
-	return nil // Никаких автоматических действий
+	return nil
 }
 
 func (m *OAuthModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -55,7 +55,14 @@ func (m *OAuthModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.errorMsg = ""
 				return m, m.pollingOAuth()
 			case "success":
-				return NewMainMenuModel(m.id, m.username, m.gold, m.Clients), nil
+				//return NewMainMenuModel(m.id, m.username, m.gold, m.Clients), nil
+				return m, func() tea.Msg {
+					return AuthSuccessMsg{
+						ID:       m.id,
+						Username: m.username,
+						Gold:     m.gold,
+					}
+				}
 			case "pending":
 				return m, nil
 			}

@@ -1,7 +1,6 @@
 package app
 
 import (
-	tea "github.com/charmbracelet/bubbletea"
 	"lesta-start-battleship/cli/internal/api/auth"
 	"lesta-start-battleship/cli/internal/api/guilds"
 	"lesta-start-battleship/cli/internal/api/inventory"
@@ -10,11 +9,14 @@ import (
 	cliModel "lesta-start-battleship/cli/internal/cli/initCli"
 	"lesta-start-battleship/cli/internal/clientdeps"
 	"lesta-start-battleship/cli/storage/token"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 const (
 	authURL       = "https://battleship-lesta-start.ru/"
 	guildsURL     = "https://battleship-lesta-start.ru/guild/"
+	guildsWsURL   = "ws://37.9.53.187:8000/api/v1/"
 	inventoryURL  = "https://battleship-lesta-start.ru/inventory/"
 	scoreboardURL = "https://battleship-lesta-start.ru/scoreboard/"
 	shopURL       = "https://battleship-lesta-start.ru/shop/"
@@ -54,7 +56,7 @@ func initClients(tokenStore *token.Storage) (*clientdeps.Client, error) {
 		return nil, err
 	}
 
-	guildsClient, err := guilds.NewClient(guildsURL, tokenStore)
+	guildsClient, err := guilds.NewClient(guildsURL, guildsWsURL, tokenStore)
 	if err != nil {
 		return nil, err
 	}

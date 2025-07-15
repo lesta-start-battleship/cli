@@ -145,6 +145,7 @@ func (c *Client) Register(ctx context.Context, req UserRegRequest) (*TokenRespon
 }
 
 // Login - вход по логину и паролю
+// теперь в теле ответа информация по пользователю, а в хедерах - токены
 func (c *Client) Login(ctx context.Context, req LoginRequest) (*TokenResponse, *ProfileResponse, error) {
 	body, err := c.doRequest(ctx, "POST", LoginPath, req)
 	if err != nil {
@@ -242,6 +243,7 @@ func (c *Client) InitOAuthDeviceFlow(ctx context.Context, provider string) (*Dev
 }
 
 // CheckOAuthDeviceFlow - проверка статуса авторизации
+// теперь в теле ответа информация по пользователю, а в хедерах - токены
 func (c *Client) CheckOAuthDeviceFlow(ctx context.Context, provider, deviceCode string) (*DeviceCheckResponse2, error) {
 	var checkPath string
 	switch provider {
@@ -317,6 +319,7 @@ func (c *Client) CompleteOAuthPolling(
 
 				// сохраняем токены в клиенте
 				c.tokenStore.SetTokens(access, refresh)
+				log.Println(access, refresh)
 
 				log.Println(access)
 

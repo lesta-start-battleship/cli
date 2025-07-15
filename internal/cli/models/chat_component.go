@@ -5,20 +5,15 @@ import (
 	"lesta-start-battleship/cli/internal/api/websocket"
 	"lesta-start-battleship/cli/internal/api/websocket/packets"
 	"lesta-start-battleship/cli/internal/api/websocket/packets/guild"
-	"lesta-start-battleship/cli/internal/api/websocket/strategies"
 	"lesta-start-battleship/cli/internal/cli/handlers"
 	"lesta-start-battleship/cli/internal/cli/ui"
+	"lesta-start-battleship/cli/internal/clientdeps"
+	"log"
 	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
-
-const guildChatUrl = "ws://37.9.53.187:8000/api/v1/chat/ws/guild/%d/%d"
-
-func formatGuildChatUrl(guildId, userId int) string {
-	return fmt.Sprintf(guildChatUrl, guildId, userId)
-}
 
 type ChatComponent struct {
 	Username     string
@@ -30,20 +25,17 @@ type ChatComponent struct {
 	Visible      bool
 	Width        int
 	err          error
+	clients      *clientdeps.Client
 	wsClient     *websocket.WebsocketClient
 }
 
-func NewChatComponent(username string, guildID int) *ChatComponent {
-	/*client, err := websocket.NewWebsocketClient(
-		formatGuildChatUrl(1, 13), nil, strategies.GuildChatStrategy{})
-	if err != nil {
-		log.Println(err)
-	}*/
-
+func NewChatComponent(username string, guildID int, clients *clientdeps.Client) *ChatComponent {
 	return &ChatComponent{
 		Username: username,
 		guildID:  guildID,
 		Width:    55,
+
+		clients: clients,
 	}
 }
 
@@ -52,15 +44,16 @@ func (c *ChatComponent) Init() tea.Cmd {
 		return nil
 	}
 
-	client, err := websocket.NewWebsocketClient(formatGuildChatUrl(1, 13), nil, strategies.GuildChatStrategy{})
+	client, err := c.clients.GuildsClient.JoinGuildChat(c.guildID)
 	if err != nil {
 		return func() tea.Msg {
 			return handlers.WsErrorMsg{Err: err}
 		}
 	}
+	go client.ReadPump()
+	go client.WritePump()
+
 	c.wsClient = client
-	go c.wsClient.ReadPump()
-	go c.wsClient.WritePump()
 
 	return c.waitForMessage()
 }
@@ -73,6 +66,12 @@ func (c *ChatComponent) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		c.Width = msg.Width / 4
 		return c, nil
 
+	case *guild.ChatHistory:
+		for _, msg := range msg.Data {
+			c.messages = append(c.messages, &msg)
+		}
+		c.scrollToBottom()
+		return c, c.waitForMessage()
 	case *guild.ChatHistoryMessage:
 		c.messages = append(c.messages, msg)
 		c.scrollToBottom()
@@ -88,12 +87,14 @@ func (c *ChatComponent) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		})
 
 	case handlers.ReconnectMsg:
-		err := c.wsClient.Connect(formatGuildChatUrl(1, 13), nil)
+		client, err := c.clients.GuildsClient.JoinGuildChat(c.guildID)
 		if err != nil {
 			c.err = err
 		} else {
-			go c.wsClient.ReadPump()
-			go c.wsClient.WritePump()
+			go client.ReadPump()
+			go client.WritePump()
+
+			c.wsClient = client
 		}
 
 		return c, c.waitForMessage()
@@ -207,6 +208,7 @@ func (c *ChatComponent) waitForMessage() tea.Cmd {
 		case packet := <-c.wsClient.ReadChan():
 			var unwrapped guild.Packet
 			if err := packets.UnwrapAsGuild(packet, &unwrapped); err != nil {
+				log.Println(err)
 			}
 			return unwrapped
 		case <-time.After(30 * time.Second):

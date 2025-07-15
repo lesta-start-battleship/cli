@@ -43,7 +43,7 @@ func NewClient(baseURL string, tokens *token.Storage) (*Client, error) {
 // GetUserStats - получение статистики пользователей
 func (c *Client) GetUserStats(
 	ctx context.Context,
-	userID *int,
+	ids []int,
 	nameFilter string,
 	orderBy string,
 	reverse bool,
@@ -58,8 +58,10 @@ func (c *Client) GetUserStats(
 
 	// Подготовка параметров запроса
 	q := u.Query()
-	if userID != nil {
-		q.Add("ids", strconv.Itoa(*userID))
+	if ids != nil {
+		for _, id := range ids {
+			q.Add("ids", strconv.Itoa(id))
+		}
 	}
 	if nameFilter != "" {
 		q.Add("name_ilike", nameFilter)

@@ -325,7 +325,7 @@ func (m *MembersListModel) handleConfirmState(msg tea.Msg) (tea.Model, tea.Cmd) 
 
 				return m, func() tea.Msg {
 					ctx := context.Background()
-					err := m.Clients.GuildsClient.EditMember(ctx, m.guildTag, m.id, selectedMember.UserID,
+					err := m.Clients.GuildsClient.EditMember(ctx, m.guildTag, selectedMember.UserID, m.id,
 						guilds.EditMemberRequest{
 							RoleID:   newRoleId,
 							UserName: selectedMember.UserName,
@@ -343,7 +343,7 @@ func (m *MembersListModel) handleConfirmState(msg tea.Msg) (tea.Model, tea.Cmd) 
 			} else {
 				return m, func() tea.Msg {
 					ctx := context.Background()
-					err := m.Clients.GuildsClient.DeleteMember(ctx, m.guildTag, m.id, selectedMember.UserID)
+					err := m.Clients.GuildsClient.DeleteMember(ctx, m.guildTag, selectedMember.UserID, m.id)
 					if err != nil {
 						log.Printf("Ошибка при удалении: %v", err.Error())
 						return err
