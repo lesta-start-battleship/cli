@@ -240,7 +240,7 @@ func (m *AuthModel) handleEnter() (tea.Model, tea.Cmd) {
 			}
 			// логика авторизации
 			ctx := context.Background()
-			_, profile, err := m.Clients.AuthClient.Login(ctx, authapi.LoginRequest{Username: m.login, Password: m.password})
+			profile, err := m.Clients.AuthClient.Login(ctx, authapi.LoginRequest{Username: m.login, Password: m.password})
 			if err != nil {
 				m.errorMsg = fmt.Sprintf("Ошибка авторизации: %v", err)
 				return m, nil
@@ -260,7 +260,7 @@ func (m *AuthModel) handleEnter() (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			ctx := context.Background()
-			_, profile, err := m.Clients.AuthClient.Register(ctx, authapi.UserRegRequest{
+			profile, err := m.Clients.AuthClient.Register(ctx, authapi.UserRegRequest{
 				Username: m.login,
 				Password: m.password,
 				Email:    m.email,

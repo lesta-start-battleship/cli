@@ -161,7 +161,7 @@ func (c *Client) doRequest(ctx context.Context, url string) ([]byte, error) {
 	req.Header.Set("Accept", "application/json")
 	access, refresh := c.tokenStore.GetToken()
 	if access != "" {
-		req.Header.Set("Authorization", access)
+		req.Header.Set("Authorization", "Bearer "+access)
 		req.Header.Set("Refresh-Token", refresh)
 	}
 

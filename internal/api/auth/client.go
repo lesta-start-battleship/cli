@@ -59,7 +59,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body interf
 	access, refresh := c.tokenStore.GetToken()
 	req.Header.Set("Content-Type", "application/json")
 	if access != "" {
-		req.Header.Set("Authorization", access)
+		req.Header.Set("Authorization", "Bearer "+access)
 		req.Header.Set("Refresh-Token", refresh)
 	}
 
@@ -77,6 +77,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body interf
 			c.tokenStore.SetTokens(newAccess, newRefresh)
 		}
 	}
+	log.Println(c.tokenStore.GetToken())
 
 	// чтение тела ответа
 	responseBody, err := io.ReadAll(resp.Body)
@@ -122,50 +123,34 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body interf
 }
 
 // Register - регистрация нового пользователя
-func (c *Client) Register(ctx context.Context, req UserRegRequest) (*TokenResponse, *ProfileResponse, error) {
-	body, err := c.doRequest(ctx, "POST", RegistrationPath, req)
+func (c *Client) Register(ctx context.Context, req UserRegRequest) (*ProfileResponse, error) {
+	_, err := c.doRequest(ctx, "POST", RegistrationPath, req)
 	if err != nil {
-		return nil, nil, fmt.Errorf("ошибка регистрации: %w", err)
+		return nil, fmt.Errorf("ошибка регистрации: %w", err)
 	}
-
-	var resp TokenResponse
-	if err := json.Unmarshal(body, &resp); err != nil {
-		return nil, nil, fmt.Errorf("ошибка декодирования ответа: %w", err)
-	}
-
-	// установка токенов в клиент
-	c.tokenStore.SetTokens(resp.AccessToken, resp.RefreshToken)
 
 	profile, err := c.GetProfile(ctx)
 	if err == nil {
 		c.userID = profile.ID
 	}
 
-	return &resp, profile, nil
+	return profile, nil
 }
 
 // Login - вход по логину и паролю
 // теперь в теле ответа информация по пользователю, а в хедерах - токены
-func (c *Client) Login(ctx context.Context, req LoginRequest) (*TokenResponse, *ProfileResponse, error) {
+func (c *Client) Login(ctx context.Context, req LoginRequest) (*ProfileResponse, error) {
 	body, err := c.doRequest(ctx, "POST", LoginPath, req)
 	if err != nil {
-		return nil, nil, fmt.Errorf("ошибка входа: %w", err)
+		return nil, fmt.Errorf("ошибка входа: %w", err)
 	}
 
-	var resp TokenResponse
+	var resp UserInfoResponse
 	if err := json.Unmarshal(body, &resp); err != nil {
-		return nil, nil, fmt.Errorf("ошибка декодирования ответа: %w", err)
+		return nil, fmt.Errorf("ошибка декодирования ответа: %w", err)
 	}
 
-	// установка токенов в клиент
-	c.tokenStore.SetTokens(resp.AccessToken, resp.RefreshToken)
-
-	profile, err := c.GetProfile(ctx)
-	if err == nil {
-		c.userID = profile.ID
-	}
-
-	return &resp, profile, nil
+	return resp.User, nil
 }
 
 // RefreshToken - обновление access token с помощью refresh token
@@ -244,7 +229,7 @@ func (c *Client) InitOAuthDeviceFlow(ctx context.Context, provider string) (*Dev
 
 // CheckOAuthDeviceFlow - проверка статуса авторизации
 // теперь в теле ответа информация по пользователю, а в хедерах - токены
-func (c *Client) CheckOAuthDeviceFlow(ctx context.Context, provider, deviceCode string) (*DeviceCheckResponse2, error) {
+func (c *Client) CheckOAuthDeviceFlow(ctx context.Context, provider, deviceCode string) (*DeviceCheckResponse, error) {
 	var checkPath string
 	switch provider {
 	case "google":
@@ -264,14 +249,15 @@ func (c *Client) CheckOAuthDeviceFlow(ctx context.Context, provider, deviceCode 
 		return nil, fmt.Errorf("ошибка проверки статуса OAuth: %w", err)
 	}
 
-	var resp DeviceCheckResponse2
+	var resp DeviceCheckResponse
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, fmt.Errorf("ошибка декодирования ответа проверки: %w", err)
 	}
 
 	// Автоматическое определение статуса, если не задан
+	access, refresh := c.tokenStore.GetToken()
 	if resp.Status == "" {
-		if resp.AccessToken != "" && resp.RefreshToken != "" {
+		if access != "" && refresh != "" {
 			resp.Status = "authenticated"
 		} else if resp.User == nil {
 			resp.Status = "error"
@@ -291,7 +277,7 @@ func (c *Client) CompleteOAuthPolling(
 	deviceCode string,
 	expiresIn,
 	interval int,
-) (*TokenResponse, *ProfileResponse, error) {
+) (*ProfileResponse, error) {
 	if interval <= 0 {
 		interval = 5
 	}
@@ -306,15 +292,15 @@ func (c *Client) CompleteOAuthPolling(
 		case <-ticker.C:
 			checkResp, err := c.CheckOAuthDeviceFlow(ctx, provider, deviceCode)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 
 			switch checkResp.Status {
 			case "authenticated":
-				access := checkResp.AccessToken
+				/*access := checkResp.AccessToken
 				refresh := checkResp.RefreshToken
 				if access == "" || refresh == "" {
-					return nil, nil, fmt.Errorf("токены отсутствуют в ответе")
+					return nil, fmt.Errorf("токены отсутствуют в ответе")
 				}
 
 				// сохраняем токены в клиенте
@@ -327,6 +313,7 @@ func (c *Client) CompleteOAuthPolling(
 					AccessToken:  access,
 					RefreshToken: refresh,
 				}
+				log.Println(tokens)*/
 				var profile *ProfileResponse
 				if checkResp.User != nil {
 					// берем профиль из ответа, если он есть
@@ -336,26 +323,26 @@ func (c *Client) CompleteOAuthPolling(
 					// если профиль не пришел, запрашиваем отдельно
 					profile, err = c.GetProfile(ctx)
 					if err != nil {
-						return tokens, nil, fmt.Errorf("ошибка получения профиля: %w", err)
+						return nil, fmt.Errorf("ошибка получения профиля: %w", err)
 					}
 				}
 
-				return tokens, profile, nil
+				return profile, nil
 
 			case "expired":
-				return nil, nil, fmt.Errorf("код устройства истек")
+				return nil, fmt.Errorf("код устройства истек")
 			case "denied":
-				return nil, nil, fmt.Errorf("пользователь отклонил авторизацию")
+				return nil, fmt.Errorf("пользователь отклонил авторизацию")
 			case "pending", "":
 				// продолжаем опрос
 			default:
-				return nil, nil, fmt.Errorf("неожиданный статус: %s", checkResp.Status)
+				return nil, fmt.Errorf("неожиданный статус: %s", checkResp.Status)
 			}
 
 		case <-timeout:
-			return nil, nil, fmt.Errorf("время ожидания авторизации истекло (%d секунд)", expiresIn)
+			return nil, fmt.Errorf("время ожидания авторизации истекло (%d секунд)", expiresIn)
 		case <-ctx.Done():
-			return nil, nil, fmt.Errorf("авторизация отменена: %w", ctx.Err())
+			return nil, fmt.Errorf("авторизация отменена: %w", ctx.Err())
 		}
 	}
 }

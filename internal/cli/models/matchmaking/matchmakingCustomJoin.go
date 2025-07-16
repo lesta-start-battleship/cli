@@ -1,38 +1,39 @@
-package models
+package matchmaking
 
 import (
 	"fmt"
 	"lesta-start-battleship/cli/internal/api/websocket"
 	"lesta-start-battleship/cli/internal/api/websocket/packets"
+	"lesta-start-battleship/cli/internal/api/websocket/packets/matchmaking"
 	"lesta-start-battleship/cli/internal/cli/ui"
+	"lesta-start-battleship/cli/internal/clientdeps"
 	"log"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	matchmaking "github.com/lesta-battleship/matchmaking/pkg/packets"
 )
 
 type MatchmakingCustomJoinModel struct {
-	parent   tea.Model
-	userId   string
-	username string
+	parent tea.Model
 
-	input    string
+	input string
+
+	player   *clientdeps.PlayerInfo
 	wsClient *websocket.WebsocketClient
 }
 
-func NewMatchmakingCustomJoinModel(parent tea.Model, username, userId string, wsClient *websocket.WebsocketClient) *MatchmakingCustomJoinModel {
+func NewMatchmakingCustomJoinModel(parent tea.Model, player *clientdeps.PlayerInfo, wsClient *websocket.WebsocketClient) *MatchmakingCustomJoinModel {
 	return &MatchmakingCustomJoinModel{
-		parent:   parent,
-		userId:   userId,
-		username: username,
+		parent: parent,
 
-		input:    "",
+		player:   player,
 		wsClient: wsClient,
 	}
 }
 
 func (m *MatchmakingCustomJoinModel) Init() tea.Cmd {
+	m.input = ""
+
 	return m.waitForMessage()
 }
 
@@ -50,23 +51,28 @@ func (m *MatchmakingCustomJoinModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case tea.KeyEnter:
 			if m.input == "" {
-				return m, nil
+				return m, m.waitForMessage()
 			}
-			newMsg := packets.WrapMatchmaking(matchmaking.NewJoinRoom(m.userId, m.input))
-			m.wsClient.WriteChan() <- newMsg
+			packet := matchmaking.JoinRoomPacket(m.player.Id(), m.input)
+			m.wsClient.SendPacket(packets.WrapMatchmaking(packet))
+
 			m.input = ""
 
 			return m, m.waitForMessage()
 
 		case tea.KeyEsc:
-			return m.parent, nil
+			return m.parent, m.parent.Init()
 		case tea.KeyCtrlC:
+			packet := matchmaking.DisconnectPacket(m.player.Id())
+			m.wsClient.SendPacket(packets.WrapMatchmaking(packet))
+
 			return m, tea.Quit
 		}
 
 	case *matchmaking.PlayerMessage:
-		model := NewMatchmakingCustomRoomModel(m.parent, m.username, m.userId, m.wsClient)
+		model := NewMatchmakingCustomRoomModel(m.parent, m.player, m.wsClient)
 		model.roomId = msg.Msg
+
 		return model, model.Init()
 	}
 
@@ -78,7 +84,7 @@ func (m *MatchmakingCustomJoinModel) View() string {
 
 	sb.WriteString(ui.TitleStyle.Render("Морской Бой"))
 	sb.WriteString("\n\n")
-	sb.WriteString(ui.NormalStyle.Render("Пользователь: " + m.username))
+	sb.WriteString(ui.NormalStyle.Render("Пользователь: " + m.player.Name()))
 	sb.WriteString("\n\n")
 
 	fmt.Fprintf(&sb, "Введите ID: %q", m.input)
@@ -95,7 +101,7 @@ func (c *MatchmakingCustomJoinModel) waitForMessage() tea.Cmd {
 		case packet := <-c.wsClient.ReadChan():
 			var unwrapped matchmaking.Packet
 			if err := packets.UnwrapAsMatchmaking(packet, &unwrapped); err != nil {
-				log.Fatal(err)
+				log.Println(err)
 			}
 			return unwrapped.Body
 		}

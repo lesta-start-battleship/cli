@@ -4,6 +4,7 @@ import (
 	"lesta-start-battleship/cli/internal/api/auth"
 	"lesta-start-battleship/cli/internal/api/guilds"
 	"lesta-start-battleship/cli/internal/api/inventory"
+	"lesta-start-battleship/cli/internal/api/matchmaking"
 	"lesta-start-battleship/cli/internal/api/scoreboard"
 	"lesta-start-battleship/cli/internal/api/shop"
 	cliModel "lesta-start-battleship/cli/internal/cli/initCli"
@@ -76,11 +77,14 @@ func initClients(tokenStore *token.Storage) (*clientdeps.Client, error) {
 		return nil, err
 	}
 
+	matchmakingClient := matchmaking.NewClient(tokenStore)
+
 	return &clientdeps.Client{
 		AuthClient:       authClient,
 		GuildsClient:     guildsClient,
 		InventoryClient:  inventoryClient,
 		ScoreboardClient: scoreboardClient,
 		ShopClient:       shopClient,
+		Matchmaking:      matchmakingClient,
 	}, nil
 }

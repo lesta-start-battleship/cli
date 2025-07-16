@@ -123,7 +123,7 @@ func (m *OAuthModel) View() string {
 func (m *OAuthModel) pollingOAuth() tea.Cmd {
 	return func() tea.Msg {
 		ctx := context.Background()
-		_, profile, err := m.Clients.AuthClient.CompleteOAuthPolling(ctx, m.provider, m.deviceCode, m.expiresIn, m.interval)
+		profile, err := m.Clients.AuthClient.CompleteOAuthPolling(ctx, m.provider, m.deviceCode, m.expiresIn, m.interval)
 		if err != nil {
 			return OAuthPollingResultMsg{Error: err.Error()}
 		}

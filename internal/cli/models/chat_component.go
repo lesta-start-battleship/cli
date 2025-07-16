@@ -72,6 +72,7 @@ func (c *ChatComponent) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		c.scrollToBottom()
 		return c, c.waitForMessage()
+
 	case *guild.ChatHistoryMessage:
 		c.messages = append(c.messages, msg)
 		c.scrollToBottom()
