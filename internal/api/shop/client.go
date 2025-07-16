@@ -148,6 +148,46 @@ func (c *Client) GetPromotions(ctx context.Context) ([]Promotion, error) {
 	return promotionResp.Results, nil
 }
 
+/*
+func (c *Client) GetPromotions(ctx context.Context) ([]Promotion, error) {
+	resp, err := c.doRequest(ctx, "GET", "promotion/", nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var raw map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+		return nil, fmt.Errorf("error decoding response to map[string]any: %w", err)
+	}
+
+	results, ok := raw["results"].([]any)
+	if !ok {
+		// Если нет ключа results и raw — это массив (например, сервер вернул []Promotion)
+		if arr, isArr := any(raw).([]any); isArr {
+			results = arr
+		} else {
+			return nil, fmt.Errorf("unknown format: no 'results' array and not a top-level array")
+		}
+	}
+
+	var promotions []Promotion
+	for _, item := range results {
+		itemBytes, err := json.Marshal(item)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling item: %w", err)
+		}
+		var promo Promotion
+		if err := json.Unmarshal(itemBytes, &promo); err != nil {
+			return nil, fmt.Errorf("error unmarshaling item to Promotion: %w", err)
+		}
+		promotions = append(promotions, promo)
+	}
+
+	return promotions, nil
+}
+*/
+
 // BuyProduct - покупка предмета
 func (c *Client) BuyProduct(ctx context.Context, itemID int) error {
 	path := fmt.Sprintf("item/%d/buy/", itemID)
