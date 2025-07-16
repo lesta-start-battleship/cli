@@ -3,9 +3,8 @@ package packets
 import (
 	"fmt"
 	"lesta-start-battleship/cli/internal/api/websocket/packets/guild"
+	"lesta-start-battleship/cli/internal/api/websocket/packets/matchmaking"
 	"reflect"
-
-	matchmaking "github.com/lesta-battleship/matchmaking/pkg/packets"
 )
 
 type Packet interface {

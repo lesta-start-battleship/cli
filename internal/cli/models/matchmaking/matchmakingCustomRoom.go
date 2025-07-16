@@ -1,34 +1,35 @@
-package models
+package matchmaking
 
 import (
 	"fmt"
 	"lesta-start-battleship/cli/internal/api/websocket"
 	"lesta-start-battleship/cli/internal/api/websocket/packets"
+	"lesta-start-battleship/cli/internal/api/websocket/packets/matchmaking"
 	"lesta-start-battleship/cli/internal/cli/ui"
+	"lesta-start-battleship/cli/internal/clientdeps"
 	"log"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	matchmaking "github.com/lesta-battleship/matchmaking/pkg/packets"
 )
 
 type MatchmakingCustomRoomModel struct {
-	parent   tea.Model
-	userId   string
-	username string
+	parent tea.Model
 
+	roomId string
+
+	player   *clientdeps.PlayerInfo
 	wsClient *websocket.WebsocketClient
-	roomId   string
 }
 
-func NewMatchmakingCustomRoomModel(parent tea.Model, username, userId string, client *websocket.WebsocketClient) *MatchmakingCustomRoomModel {
+func NewMatchmakingCustomRoomModel(parent tea.Model, player *clientdeps.PlayerInfo, client *websocket.WebsocketClient) *MatchmakingCustomRoomModel {
 	return &MatchmakingCustomRoomModel{
-		parent:   parent,
-		userId:   userId,
-		username: username,
+		parent: parent,
 
+		roomId: "Wait...",
+
+		player: player,
 		wsClient: client,
-		roomId:   "Wait",
 	}
 }
 
@@ -41,16 +42,20 @@ func (m *MatchmakingCustomRoomModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEsc:
-			packet := matchmaking.NewDisconnect(m.userId)
-
+			packet := matchmaking.DisconnectPacket(m.player.Id())
 			m.wsClient.SendPacket(packets.WrapMatchmaking(packet))
-			return m.parent, nil
+
+			return m.parent, m.parent.Init()
 
 		case tea.KeyCtrlC:
+			packet := matchmaking.DisconnectPacket(m.player.Id())
+			m.wsClient.SendPacket(packets.WrapMatchmaking(packet))
+
 			return m, tea.Quit
 		}
 	case *matchmaking.PlayerMessage:
 		m.roomId = msg.Msg
+
 		return m, m.waitForMessage()
 	}
 
@@ -62,7 +67,7 @@ func (m *MatchmakingCustomRoomModel) View() string {
 
 	sb.WriteString(ui.TitleStyle.Render("Морской Бой"))
 	sb.WriteString("\n\n")
-	sb.WriteString(ui.NormalStyle.Render("Пользователь: " + m.username))
+	sb.WriteString(ui.NormalStyle.Render("Пользователь: " + m.player.Name()))
 	sb.WriteString("\n\n")
 
 	fmt.Fprintf(&sb, "ID: %q", m.roomId)
@@ -79,7 +84,7 @@ func (c *MatchmakingCustomRoomModel) waitForMessage() tea.Cmd {
 		case packet := <-c.wsClient.ReadChan():
 			var unwrapped matchmaking.Packet
 			if err := packets.UnwrapAsMatchmaking(packet, &unwrapped); err != nil {
-				log.Fatal(err)
+				log.Println(err)
 			}
 			return unwrapped.Body
 		}
