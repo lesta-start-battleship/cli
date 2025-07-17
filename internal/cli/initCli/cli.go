@@ -1,8 +1,6 @@
 package initCli
 
 import (
-	"log"
-
 	"lesta-start-battleship/cli/internal/cli/models"
 	"lesta-start-battleship/cli/internal/clientdeps"
 	guildStorage "lesta-start-battleship/cli/storage/guild"
@@ -48,7 +46,6 @@ func (a *CLI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.userID = msg.ID
 		a.gold = msg.Gold
 		a.username = msg.Username
-		log.Printf("UserID %d", a.userID)
 		a.currentScreen = models.NewMainMenuModel(a.userID, a.username, a.gold, a.clients)
 		a.chatComponent = models.NewChatComponent(a.username, 0, a.clients)
 		return a, nil
