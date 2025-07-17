@@ -15,6 +15,10 @@ FROM alpine:3.18
 
 WORKDIR /app
 
+RUN apk add --no-cache ca-certificates
+COPY battleship-lesta-start.ru.crt /usr/local/share/ca-certificates/
+RUN update-ca-certificates
+
 COPY --from=builder /app/cli-app ./cli
 
 ENTRYPOINT ["./cli"]

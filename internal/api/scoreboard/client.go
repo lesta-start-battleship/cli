@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"lesta-start-battleship/cli/storage/token"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -42,14 +43,14 @@ func NewClient(baseURL string, tokens *token.Storage) (*Client, error) {
 // GetUserStats - получение статистики пользователей
 func (c *Client) GetUserStats(
 	ctx context.Context,
-	userID *int,
+	ids []int,
 	nameFilter string,
 	orderBy string,
 	reverse bool,
 	limit int,
 	page int,
 ) (*UserListResponse, error) {
-	endpoint := fmt.Sprintf("%s%s/users", c.baseURL.String(), basePath)
+	endpoint := fmt.Sprintf("%susers/", c.baseURL.String())
 	u, err := url.Parse(endpoint)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка формирования URL: %w", err)
@@ -57,22 +58,23 @@ func (c *Client) GetUserStats(
 
 	// Подготовка параметров запроса
 	q := u.Query()
-	if userID != nil {
-		q.Add("id_like", strconv.Itoa(*userID))
+	if ids != nil {
+		for _, id := range ids {
+			q.Add("ids", strconv.Itoa(id))
+		}
 	}
 	if nameFilter != "" {
 		q.Add("name_ilike", nameFilter)
 	}
-	if orderBy != "" {
-		q.Add("order_by", orderBy)
-	}
 	if reverse {
-		q.Add("reverse", "true")
+		q.Add(fmt.Sprintf("order_by_%s", orderBy), "desc")
 	}
 	q.Add("limit", strconv.Itoa(limit))
 	q.Add("page", strconv.Itoa(page))
 
 	u.RawQuery = q.Encode()
+
+	log.Printf("URL запроса рейтинга игроков: %s", u.String())
 
 	body, err := c.doRequest(ctx, u.String())
 	if err != nil {
@@ -88,36 +90,17 @@ func (c *Client) GetUserStats(
 }
 
 // GetCurrentUserStats - получение статистики текущего пользователя
-func (c *Client) GetCurrentUserStats(ctx context.Context, userID int) (*UserStat, error) {
-	resp, err := c.GetUserStats(ctx, &userID, "", "", false, 1, 1)
+func (c *Client) GetCurrentUserStats(ctx context.Context, username string) (*UserStat, error) {
+	resp, err := c.GetUserStats(ctx, nil, username, "", false, 1, 1)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(resp.Items) == 0 {
-		return nil, fmt.Errorf("статистика пользователя с id %d не найдена", userID)
+		return nil, nil
 	}
 
 	return &resp.Items[0], nil
-}
-
-// GetChestLeaders - получение лидеров по открытию сундуков
-func (c *Client) GetChestLeaders(ctx context.Context, limit int) ([]UserStat, error) {
-	resp, err := c.GetUserStats(
-		ctx,
-		nil,
-		"",             // без фильтра по имени
-		"chest_opened", // сортировка по сундукам
-		true,           // по убыванию (от большего к меньшему)
-		limit,          // запрошенное количество
-		1,              // страница
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return resp.Items, nil
 }
 
 // GetGuildStats - получение статистики гильдий
@@ -130,7 +113,7 @@ func (c *Client) GetGuildStats(
 	limit int,
 	page int,
 ) (*GuildListResponse, error) {
-	endpoint := fmt.Sprintf("%s%s/guilds", c.baseURL.String(), basePath)
+	endpoint := fmt.Sprintf("%sguilds/", c.baseURL.String())
 	u, err := url.Parse(endpoint)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка формирования URL: %w", err)
@@ -138,21 +121,20 @@ func (c *Client) GetGuildStats(
 
 	q := u.Query()
 	if guildID != nil {
-		q.Add("id_like", strconv.Itoa(*guildID))
+		q.Add("ids", strconv.Itoa(*guildID))
 	}
 	if nameFilter != "" {
-		q.Add("name_ilike", nameFilter)
-	}
-	if orderBy != "" {
-		q.Add("order_by", orderBy)
+		q.Add("tag_ilike", nameFilter)
 	}
 	if reverse {
-		q.Add("reverse", "true")
+		q.Add(fmt.Sprintf("order_by_%s", orderBy), "desc")
 	}
 	q.Add("limit", strconv.Itoa(limit))
 	q.Add("page", strconv.Itoa(page))
 
 	u.RawQuery = q.Encode()
+
+	log.Printf("URL запроса рейтинга гильдий: %s", u.String())
 
 	body, err := c.doRequest(ctx, u.String())
 	if err != nil {
@@ -179,7 +161,7 @@ func (c *Client) doRequest(ctx context.Context, url string) ([]byte, error) {
 	req.Header.Set("Accept", "application/json")
 	access, refresh := c.tokenStore.GetToken()
 	if access != "" {
-		req.Header.Set("Authorization", access)
+		req.Header.Set("Authorization", "Bearer "+access)
 		req.Header.Set("Refresh-Token", refresh)
 	}
 

@@ -8,6 +8,7 @@ import (
 	"lesta-start-battleship/cli/internal/cli/ui"
 	"lesta-start-battleship/cli/internal/clientdeps"
 	guildStorage "lesta-start-battleship/cli/storage/guild"
+	"log"
 	"strings"
 )
 
@@ -28,6 +29,7 @@ type MembersListModel struct {
 	actionType   int  // 0 - изменить роль, 1 - удалить участника
 	loading      bool
 	errorMsg     string
+	successMsg   string
 	confirmState bool // true - подтверждение действия
 	Clients      *clientdeps.Client
 }
@@ -51,6 +53,22 @@ func (m *MembersListModel) Init() tea.Cmd {
 }
 
 func (m *MembersListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case MemberRoleChangeMsg:
+		m.loading = false
+		m.confirmState = false
+		m.actionMode = false
+		m.successMsg = fmt.Sprintf("Роль участника %s изменена", msg.Username)
+		return m, m.loadMembers
+
+	case MemberDeleteMsg:
+		m.loading = false
+		m.confirmState = false
+		m.actionMode = false
+		m.successMsg = fmt.Sprintf("Участник %s удален", msg.Username)
+		return m, m.loadMembers
+	}
+
 	if m.confirmState {
 		return m.handleConfirmState(msg)
 	}
@@ -158,11 +176,11 @@ func (m *MembersListModel) renderConfirmView() string {
 
 	if m.actionType == 0 {
 		// Подтверждение изменения роли
-		newRole := "офицера"
-		if selectedMember.Role.Title == "cabin_boi" {
-			newRole = "офицера"
+		newRole := "officer"
+		if selectedMember.Role.Title == "cabin_boy" {
+			newRole = "officer"
 		} else {
-			newRole = "юнги"
+			newRole = "cabin_boy"
 		}
 		sb.WriteString(ui.TitleStyle.Render("Подтверждение"))
 		sb.WriteString("\n\n")
@@ -224,8 +242,9 @@ func (m *MembersListModel) handleNormalMode(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.members) > 0 && (m.userRole == "owner" || m.userRole == "officer") {
 				m.actionMode = true
 				m.actionType = 0
+				return m, nil
 			}
-			return m.parent, nil
+			return m, nil
 
 		case tea.KeyEsc:
 			return m.parent, nil
@@ -278,31 +297,55 @@ func (m *MembersListModel) handleConfirmState(msg tea.Msg) (tea.Model, tea.Cmd) 
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter:
+			if m.selected < 0 || m.selected >= len(m.members) {
+				m.errorMsg = "Неверный выбор участника"
+				m.confirmState = false
+				return m, nil
+			}
+
 			selectedMember := m.members[m.selected]
+
+			if m.actionType == 0 && m.userRole != "owner" {
+				m.errorMsg = "Только владелец может изменять роли"
+				m.confirmState = false
+				return m, nil
+			}
+
+			m.loading = true
+			m.errorMsg = ""
+			m.successMsg = ""
+
 			if m.actionType == 0 {
-				var newRole string
-				if selectedMember.Role.Title == "cabin_boy" {
-					newRole = "officer"
+				var newRoleId int
+				if selectedMember.Role.ID == 2 {
+					newRoleId = 3
 				} else {
-					newRole = "cabin_boy"
+					newRoleId = 2
 				}
 
 				return m, func() tea.Msg {
 					ctx := context.Background()
-					err := m.Clients.GuildsClient.EditMember(ctx, m.guildTag, m.id, selectedMember.UserID,
+					err := m.Clients.GuildsClient.EditMember(ctx, m.guildTag, selectedMember.UserID, m.id,
 						guilds.EditMemberRequest{
-							RoleID: getRoleID(newRole),
+							RoleID:   newRoleId,
+							UserName: selectedMember.UserName,
 						})
 					if err != nil {
+						log.Printf("Ошибка при изменении роли: %v", err.Error())
 						return err
 					}
-					return MemberRoleChangeMsg{Username: selectedMember.UserName}
+					log.Printf("Новая роль участника %s: %d. Старая роль: %d", selectedMember.UserName, newRoleId, selectedMember.Role.ID)
+					return MemberRoleChangeMsg{
+						Username: selectedMember.UserName,
+						NewRole:  getRole(newRoleId),
+					}
 				}
 			} else {
 				return m, func() tea.Msg {
 					ctx := context.Background()
-					err := m.Clients.GuildsClient.DeleteMember(ctx, m.guildTag, m.id, selectedMember.UserID)
+					err := m.Clients.GuildsClient.DeleteMember(ctx, m.guildTag, selectedMember.UserID, m.id)
 					if err != nil {
+						log.Printf("Ошибка при удалении: %v", err.Error())
 						return err
 					}
 					return MemberDeleteMsg{Username: selectedMember.UserName}
@@ -317,12 +360,12 @@ func (m *MembersListModel) handleConfirmState(msg tea.Msg) (tea.Model, tea.Cmd) 
 	return m, nil
 }
 
-func getRoleID(roleTitle string) int {
-	switch roleTitle {
-	case "officer":
-		return 3
-	default: // "cabin_boy"
-		return 2
+func getRole(roleId int) string {
+	switch roleId {
+	case 3:
+		return "officer"
+	default: // 2
+		return "cabin_boy"
 	}
 }
 

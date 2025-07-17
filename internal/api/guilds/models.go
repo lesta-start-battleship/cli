@@ -22,14 +22,15 @@ const (
 	PathListGuildWars     = "war/list"
 	PathGetGuilds         = ""
 	PathEditGuild         = "%s"
+	PathConnectGuildChat  = "chat/ws/guild/%d"
 )
 
 // Role - роль участника гильдии
 type Role struct {
-	ID          int    `json:"id"`
-	Title       string `json:"title"`
-	RolePromote []int  `json:"role_promote"` // список ID ролей, которыми может управлять пользователь
-	// permissions опущены
+	ID    int    `json:"id"`
+	Title string `json:"title"`
+	// RolePromote []int  `json:"role_promote"` // список ID ролей, которыми может управлять пользователь
+	Permissions []string `json:"permissions"`
 }
 
 // MemberResponse - информация об участнике гильдии

@@ -3,12 +3,14 @@ package models
 import (
 	"context"
 	"fmt"
-	tea "github.com/charmbracelet/bubbletea"
 	"lesta-start-battleship/cli/internal/api/inventory"
+	"lesta-start-battleship/cli/internal/cli/models/matchmaking"
 	"lesta-start-battleship/cli/internal/cli/ui"
 	"lesta-start-battleship/cli/internal/clientdeps"
 	guildStorage "lesta-start-battleship/cli/storage/guild"
 	"strings"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 type MainMenuModel struct {
@@ -50,18 +52,22 @@ func (m *MainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter:
 			switch m.selected {
 			case 0: // Бой
-				return NewMatchmakingModel(m, m.id, m.username), nil
+				player := clientdeps.NewPlayerInfo(m.id, m.username)
+				model := matchmaking.NewMatchmakingModel(m, player, m.Clients)
+
+				return model, model.Init()
 			case 1: // Инвентарь
 				return m, m.loadHandler
 			case 2: // Магазин
-				model := NewShopModel(m, m.id, m.username, m.gold, ShopResponse{}, m.Clients)
+				model := NewShopModel(m.id, m.username, m.gold, m.Clients)
 				return model, model.Init()
 			case 3: // Гильдия
 				return m, m.guildHandler
 			case 4: // Редактирование профиля
 				return NewEditProfileModel(m.id, m.username, m.gold, m.Clients), nil
 			case 5: // Рейтинг
-				return NewScoreboardModel(m, m.id, m.username, m.gold, m.Clients), nil
+				model := NewScoreboardModel(m, m.id, m.username, m.gold, m.Clients)
+				return model, model.Init()
 			}
 			return m, nil
 

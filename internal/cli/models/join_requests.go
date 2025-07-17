@@ -25,6 +25,7 @@ type JoinRequestsModel struct {
 	selectedUser int
 	confirmState bool
 	loading      bool
+	processing   bool
 	errorMsg     string
 	successMsg   string
 	Clients      *clientdeps.Client
@@ -57,6 +58,8 @@ func (m *JoinRequestsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyUp:
+			m.errorMsg = ""
+			m.successMsg = ""
 			if m.selected > 0 {
 				m.selected--
 			} else if m.currentPage > 1 {
@@ -67,6 +70,8 @@ func (m *JoinRequestsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 
 		case tea.KeyDown:
+			m.errorMsg = ""
+			m.successMsg = ""
 			if m.selected < len(m.requests)-1 {
 				m.selected++
 			} else if m.currentPage < m.totalPages {
@@ -77,6 +82,8 @@ func (m *JoinRequestsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 
 		case tea.KeyLeft:
+			m.errorMsg = ""
+			m.successMsg = ""
 			if m.currentPage > 1 {
 				m.currentPage--
 				m.selected = 0
@@ -85,6 +92,8 @@ func (m *JoinRequestsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 
 		case tea.KeyRight:
+			m.errorMsg = ""
+			m.successMsg = ""
 			if m.currentPage < m.totalPages {
 				m.currentPage++
 				m.selected = 0
@@ -107,19 +116,26 @@ func (m *JoinRequestsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loading = false
 		m.requests = msg.Items
 		m.totalPages = msg.TotalPages
-		if len(m.requests) == 0 {
+		/*if len(m.requests) == 0 {
 			m.errorMsg = "Заявки не найдены"
+		}*/
+		if m.selected >= len(m.requests) {
+			m.selected = max(0, len(m.requests)-1)
 		}
 		return m, nil
 
 	case RequestProcessedMsg:
 		m.successMsg = msg.Message
+		m.errorMsg = ""
 		m.confirmState = false
-		return m, m.loadRequests
+		m.processing = false
+		return m, nil
 
 	case error:
 		m.loading = false
+		m.processing = false
 		m.errorMsg = msg.Error()
+		m.successMsg = ""
 		return m, nil
 	}
 
@@ -132,25 +148,35 @@ func (m *JoinRequestsModel) handleConfirmState(msg tea.Msg) (tea.Model, tea.Cmd)
 		switch msg.Type {
 		case tea.KeyEnter:
 			// Принять заявку
-			return m, func() tea.Msg {
-				ctx := context.Background()
-				err := m.Clients.GuildsClient.ApplyJoinRequest(ctx, m.guildTag, m.selectedUser, m.id)
-				if err != nil {
-					return err
-				}
-				return RequestProcessedMsg{Message: "Заявка принята"}
-			}
+			m.confirmState = false
+			m.processing = true
+			return m, tea.Sequence(
+				func() tea.Msg {
+					ctx := context.Background()
+					err := m.Clients.GuildsClient.ApplyJoinRequest(ctx, m.guildTag, m.selectedUser, m.id)
+					if err != nil {
+						return err
+					}
+					return RequestProcessedMsg{Message: "Заявка принята"}
+				},
+				m.loadRequests,
+			)
 
 		case tea.KeyBackspace:
 			// Отклонить заявку
-			return m, func() tea.Msg {
-				ctx := context.Background()
-				err := m.Clients.GuildsClient.CancelJoinRequest(ctx, m.guildTag, m.selectedUser, m.id)
-				if err != nil {
-					return err
-				}
-				return RequestProcessedMsg{Message: "Заявка отклонена"}
-			}
+			m.confirmState = false
+			m.processing = true
+			return m, tea.Sequence(
+				func() tea.Msg {
+					ctx := context.Background()
+					err := m.Clients.GuildsClient.CancelJoinRequest(ctx, m.guildTag, m.selectedUser, m.id)
+					if err != nil {
+						return err
+					}
+					return RequestProcessedMsg{Message: "Заявка отклонена"}
+				},
+				m.loadRequests,
+			)
 
 		case tea.KeyEsc:
 			m.confirmState = false
@@ -192,7 +218,8 @@ func (m *JoinRequestsModel) View() string {
 		sb.WriteString(ui.NormalStyle.Render("Нет заявок на вступление"))
 	} else {
 		for i, req := range m.requests {
-			line := fmt.Sprintf("Игрок ID: %d", req.UserID)
+			line := fmt.Sprintf("Usename: %s", req.UserName)
+			//line := fmt.Sprintf("Username: %s, Gold: %d, Experience: %d, Rating: %d", req.Name, req.Gold, req.Experience, req.Rating)
 			if i == m.selected {
 				sb.WriteString(ui.SelectedStyle.Render("> " + line))
 			} else {
@@ -215,10 +242,15 @@ func (m *JoinRequestsModel) renderConfirmView() string {
 	selectedReq := m.requests[m.selected]
 	sb.WriteString(ui.TitleStyle.Render("Обработка заявки"))
 	sb.WriteString("\n\n")
-	sb.WriteString(fmt.Sprintf("Игрок ID: %d\n\n", selectedReq.UserID))
-	sb.WriteString(ui.HelpStyle.Render("Enter - принять заявку"))
-	sb.WriteString("\n")
-	sb.WriteString(ui.HelpStyle.Render("Backspace - отклонить заявку"))
+	sb.WriteString(fmt.Sprintf("Игрок: %s\n\n", selectedReq.UserName))
+
+	if m.processing {
+		sb.WriteString(ui.HelpStyle.Render("Обработка запроса..."))
+	} else {
+		sb.WriteString(ui.HelpStyle.Render("Enter - принять заявку"))
+		sb.WriteString("\n")
+		sb.WriteString(ui.HelpStyle.Render("Backspace - отклонить заявку"))
+	}
 	sb.WriteString("\n")
 	sb.WriteString(ui.HelpStyle.Render("Esc - отмена"))
 
@@ -228,9 +260,19 @@ func (m *JoinRequestsModel) renderConfirmView() string {
 func (m *JoinRequestsModel) loadRequests() tea.Msg {
 	m.loading = true
 	ctx := context.Background()
-	requests, err := m.Clients.GuildsClient.GetJoinRequests(ctx, m.guildTag, m.id)
+	reqID, err := m.Clients.GuildsClient.GetJoinRequests(ctx, m.guildTag, m.id)
 	if err != nil {
 		return err
 	}
-	return requests
+
+	/*var ids []int
+
+	for _, user := range reqID.Items {
+		ids = append(ids, user.UserID)
+	}
+
+	requests, err := m.Clients.ScoreboardClient.GetUserStats(ctx, ids, "", "",
+		false, requestsPerPage, 1)*/
+
+	return reqID
 }

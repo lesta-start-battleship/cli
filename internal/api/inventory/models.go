@@ -15,7 +15,7 @@ type InventoryItem struct {
 // UserInventoryResponse - ответ с инвентарем пользователя
 type UserInventoryResponse struct {
 	UserID int             `json:"user_id"`
-	Items  []InventoryItem `json:"items"`
+	Items  []InventoryItem `json:"linked_items"`
 }
 
 // ErrorResponse - ответ об ошибке

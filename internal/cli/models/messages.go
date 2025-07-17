@@ -41,6 +41,7 @@ type GuildNoMemberMsg struct{}
 
 type MemberRoleChangeMsg struct {
 	Username string
+	NewRole  string
 }
 
 type MemberDeleteMsg struct {
@@ -65,8 +66,12 @@ type GuildEditMsg struct {
 
 type GuildDeletedMsg struct{}
 
-type DeclareWarMsg struct{}
+type DeclareWarMsg struct {
+	TargetTag string
+}
 
 type WarRequestProcessedMsg struct {
 	Message string
 }
+
+type EmptyCurrentUserStats struct{}

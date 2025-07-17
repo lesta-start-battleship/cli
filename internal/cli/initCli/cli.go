@@ -1,11 +1,12 @@
 package initCli
 
 import (
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"lesta-start-battleship/cli/internal/cli/models"
 	"lesta-start-battleship/cli/internal/clientdeps"
 	guildStorage "lesta-start-battleship/cli/storage/guild"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type CLI struct {
@@ -20,7 +21,7 @@ type CLI struct {
 func NewCLI(clients *clientdeps.Client) *CLI {
 	return &CLI{
 		currentScreen: models.NewAuthModel(clients),
-		chatComponent: models.NewChatComponent("", 0),
+		chatComponent: models.NewChatComponent("", 0, clients),
 		clients:       clients,
 	}
 }
@@ -46,7 +47,7 @@ func (a *CLI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.gold = msg.Gold
 		a.username = msg.Username
 		a.currentScreen = models.NewMainMenuModel(a.userID, a.username, a.gold, a.clients)
-		a.chatComponent = models.NewChatComponent(a.username, 1)
+		a.chatComponent = models.NewChatComponent(a.username, 0, a.clients)
 		return a, nil
 
 	case models.LogoutMsg:
@@ -56,7 +57,7 @@ func (a *CLI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		guildStorage.CleanStorage()
 		a.currentScreen = models.NewAuthModel(a.clients)
 		a.chatComponent.Close()
-		a.chatComponent = models.NewChatComponent("", 0)
+		a.chatComponent = models.NewChatComponent("", 0, a.clients)
 		return a, nil
 
 	case models.UsernameChangeMsg:
@@ -71,7 +72,7 @@ func (a *CLI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.GuildID != 0 {
 			guildID = msg.GuildID
 		}
-		a.chatComponent = models.NewChatComponent(a.username, guildID)
+		a.chatComponent = models.NewChatComponent(a.username, guildID, a.clients)
 		a.chatComponent.Toggle()
 		if a.chatComponent.IsVisible() {
 			return a, a.chatComponent.Init()

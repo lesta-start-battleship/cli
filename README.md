@@ -18,16 +18,21 @@ CLI-приложение для игры "Морской бой". Поддерж
 ## Запуск приложения:
 
 ```bash
-
-go run cmd/main.go
-
+  go run cmd/main.go
 ```
 
 ## Запуск через Docker:
 
 ```bash
-
   docker build -f ./build/cli.dockerfile -t "lesta-battleship-cli:dev" .
-
   docker run -it "lesta-battleship-cli:dev"
 ```
+
+## Запуск через justfile:
+
+```bash
+  just setup-and-build          # Сборка приложения
+  just run                      # Запуск приложения
+```
+
+Перед использованием убедитесь, что у вас установлен [менеджер just](https://github.com/casey/just)

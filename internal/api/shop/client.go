@@ -48,10 +48,11 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body interf
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}
 
+	// Устанавливаем заголовки
 	req.Header.Set("Content-Type", "application/json")
 	access, refresh := c.tokenStore.GetToken()
 	if access != "" {
-		req.Header.Set("Authorization", access)
+		req.Header.Set("Authorization", "Bearer "+access)
 		req.Header.Set("Refresh-Token", refresh)
 	}
 
@@ -78,12 +79,12 @@ func (c *Client) GetProducts(ctx context.Context) ([]Product, error) {
 		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
 	}
 
-	var products []Product
-	if err := json.NewDecoder(resp.Body).Decode(&products); err != nil {
+	var productResp ProductResponse
+	if err := json.NewDecoder(resp.Body).Decode(&productResp); err != nil {
 		return nil, fmt.Errorf("error decoding response: %w", err)
 	}
 
-	return products, nil
+	return productResp.Results, nil
 }
 
 // GetChests - получение списка сундуков
@@ -106,12 +107,12 @@ func (c *Client) GetChests(ctx context.Context) ([]Chest, error) {
 		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
 	}
 
-	var chests []Chest
-	if err := json.NewDecoder(resp.Body).Decode(&chests); err != nil {
+	var chestResp ChestResponse
+	if err := json.NewDecoder(resp.Body).Decode(&chestResp); err != nil {
 		return nil, fmt.Errorf("error decoding response: %w", err)
 	}
 
-	return chests, nil
+	return chestResp.Results, nil
 }
 
 // GetPromotions - получение списка акций
@@ -134,12 +135,12 @@ func (c *Client) GetPromotions(ctx context.Context) ([]Promotion, error) {
 		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
 	}
 
-	var promotions []Promotion
-	if err := json.NewDecoder(resp.Body).Decode(&promotions); err != nil {
+	var promotionResp PromotionResponse
+	if err := json.NewDecoder(resp.Body).Decode(&promotionResp); err != nil {
 		return nil, fmt.Errorf("error decoding response: %w", err)
 	}
 
-	return promotions, nil
+	return promotionResp.Results, nil
 }
 
 // BuyProduct - покупка предмета

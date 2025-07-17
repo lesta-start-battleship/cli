@@ -8,6 +8,7 @@ import (
 	authapi "lesta-start-battleship/cli/internal/api/auth"
 	"lesta-start-battleship/cli/internal/cli/ui"
 	"lesta-start-battleship/cli/internal/clientdeps"
+	"log"
 	"strings"
 )
 
@@ -48,23 +49,28 @@ func (m *AuthModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case tea.KeyTab:
 			m.errorMsg = ""
+			m.authMethod = 0
 			m.activeTab = (m.activeTab + 1) % 2
 			m.activeField = 0
 			return m, nil
 
 		case tea.KeyLeft:
 			m.errorMsg = ""
-			m.authMethod = 0
+			//m.authMethod = 0
 			if m.activeTab == 0 {
-				m.authMethod = (m.authMethod - 1 + 3) % 3
+				if m.authMethod > 0 {
+					m.authMethod--
+				}
 			}
 			return m, nil
 
 		case tea.KeyRight:
 			m.errorMsg = ""
-			m.authMethod = 0
+			//m.authMethod = 0
 			if m.activeTab == 0 {
-				m.authMethod = (m.authMethod + 1) % 3
+				if m.authMethod < 2 {
+					m.authMethod++
+				}
 			}
 			return m, nil
 
@@ -234,7 +240,7 @@ func (m *AuthModel) handleEnter() (tea.Model, tea.Cmd) {
 			}
 			// логика авторизации
 			ctx := context.Background()
-			_, profile, err := m.Clients.AuthClient.Login(ctx, authapi.LoginRequest{Username: m.login, Password: m.password})
+			profile, err := m.Clients.AuthClient.Login(ctx, authapi.LoginRequest{Username: m.login, Password: m.password})
 			if err != nil {
 				m.errorMsg = fmt.Sprintf("Ошибка авторизации: %v", err)
 				return m, nil
@@ -254,7 +260,7 @@ func (m *AuthModel) handleEnter() (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			ctx := context.Background()
-			_, profile, err := m.Clients.AuthClient.Register(ctx, authapi.UserRegRequest{
+			profile, err := m.Clients.AuthClient.Register(ctx, authapi.UserRegRequest{
 				Username: m.login,
 				Password: m.password,
 				Email:    m.email,
@@ -263,6 +269,12 @@ func (m *AuthModel) handleEnter() (tea.Model, tea.Cmd) {
 				m.errorMsg = fmt.Sprintf("%v", err)
 				return m, nil
 			}
+
+			if profile == nil {
+				log.Printf("Профайл пустой")
+				return m, nil
+			}
+
 			return m, func() tea.Msg {
 				return AuthSuccessMsg{
 					ID:       profile.ID,

@@ -1,71 +1,73 @@
-package models
+package matchmaking
 
 import (
-	"crypto/rand"
 	"fmt"
+	api "lesta-start-battleship/cli/internal/api/matchmaking"
 	"lesta-start-battleship/cli/internal/api/websocket"
 	"lesta-start-battleship/cli/internal/api/websocket/packets"
-	"lesta-start-battleship/cli/internal/api/websocket/strategies"
+	"lesta-start-battleship/cli/internal/api/websocket/packets/matchmaking"
 	"lesta-start-battleship/cli/internal/cli/ui"
+	"lesta-start-battleship/cli/internal/clientdeps"
 	"log"
-	"net/http"
 	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/golang-jwt/jwt/v5"
-	matchmaking "github.com/lesta-battleship/matchmaking/pkg/packets"
 )
 
 type tickMsg time.Time
 
 type MatchmakingWaitScreenModel struct {
-	parent   tea.Model
-	userId   string
-	username string
+	parent tea.Model
 
 	ticker    *time.Ticker
 	startTime time.Time
 	endTime   time.Time
 
-	wsClient *websocket.WebsocketClient
+	matchPath api.MatchmakingPath
+	player    *clientdeps.PlayerInfo
+	clients   *clientdeps.Client
+	wsClient  *websocket.WebsocketClient
 }
 
-func NewMatchmakingWaitScreenModel(parent tea.Model, username, matchType string) *MatchmakingWaitScreenModel {
-	id := rand.Text()
-	token := jwt.NewWithClaims(jwt.SigningMethodNone, jwt.MapClaims{"sub": id})
-	tokenString, err := token.SignedString(jwt.UnsafeAllowNoneSignatureType)
-	if err != nil {
-		log.Fatal(err)
-	}
-	header := http.Header{}
-	header.Add("Authorization", fmt.Sprintf("Bearer %s", tokenString))
-
-	url := formatMatchmakingUrl(matchType)
-	client, err := websocket.NewWebsocketClient(url, header, strategies.MatchmakingStrategy{})
-	if err != nil {
-		log.Fatal(err)
-	}
-	go client.WritePump()
-	go client.ReadPump()
-
+func NewMatchmakingWaitScreenModel(parent tea.Model, matchPath api.MatchmakingPath, player *clientdeps.PlayerInfo, clients *clientdeps.Client) *MatchmakingWaitScreenModel {
 	now := time.Now()
 	ticker := time.NewTicker(time.Second)
 
 	return &MatchmakingWaitScreenModel{
-		parent:   parent,
-		userId:   id,
-		username: username,
+		parent: parent,
 
 		ticker:    ticker,
 		startTime: now,
 		endTime:   now,
 
-		wsClient: client,
+		matchPath: matchPath,
+		player:    player,
+		clients:   clients,
+		wsClient:  nil,
 	}
 }
 
 func (m *MatchmakingWaitScreenModel) Init() tea.Cmd {
+	wsClient := m.wsClient
+	if wsClient == nil || wsClient.Connected() {
+		client, err := m.clients.Matchmaking.Queue(m.matchPath)
+		if err != nil {
+		}
+		go client.ReadPump()
+		go client.WritePump()
+
+		wsClient = client
+	}
+
+	now := time.Now()
+	ticker := time.NewTicker(time.Second)
+
+	m.ticker = ticker
+	m.startTime = now
+	m.endTime = now
+	m.wsClient = wsClient
+
 	return m.waitForMessage()
 }
 
@@ -74,14 +76,21 @@ func (m *MatchmakingWaitScreenModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEsc:
-			return m.parent, nil
+			packet := matchmaking.DisconnectPacket(m.player.Id())
+			m.wsClient.SendPacket(packets.WrapMatchmaking(packet))
+
+			return m.parent, m.parent.Init()
 
 		case tea.KeyCtrlC:
+			packet := matchmaking.DisconnectPacket(m.player.Id())
+			m.wsClient.SendPacket(packets.WrapMatchmaking(packet))
+
 			return m, tea.Quit
 		}
 	case *matchmaking.PlayerMessage:
-		model := NewMatchmakingCustomRoomModel(m, m.username, m.userId, m.wsClient)
+		model := NewMatchmakingCustomRoomModel(m, m.player, m.wsClient)
 		model.roomId = msg.Msg
+
 		return model, model.Init()
 	case tickMsg:
 		m.endTime = time.Time(msg)
@@ -96,7 +105,7 @@ func (m *MatchmakingWaitScreenModel) View() string {
 
 	sb.WriteString(ui.TitleStyle.Render("Морской Бой"))
 	sb.WriteString("\n\n")
-	sb.WriteString(ui.NormalStyle.Render("Пользователь: " + m.username))
+	sb.WriteString(ui.NormalStyle.Render("Пользователь: " + m.player.Name()))
 	sb.WriteString("\n\n")
 
 	fmt.Fprintf(&sb, "Время прошло: %s", m.endTime.Sub(m.startTime).Round(time.Second))
@@ -113,7 +122,7 @@ func (c *MatchmakingWaitScreenModel) waitForMessage() tea.Cmd {
 		case packet := <-c.wsClient.ReadChan():
 			var unwrapped matchmaking.Packet
 			if err := packets.UnwrapAsMatchmaking(packet, &unwrapped); err != nil {
-				log.Fatal(err)
+				log.Println(err)
 			}
 			return unwrapped.Body
 		case tick := <-c.ticker.C:

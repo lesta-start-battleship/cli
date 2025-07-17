@@ -72,7 +72,7 @@ func (s *ChatServer) HandleConnection(w http.ResponseWriter, r *http.Request) {
 	if !exists {
 		room = &ChatRoom{
 			clients:  make(map[*websocket.Conn]string),
-			messages: make([]ChatMessage, 0, 100), // увеличил размер слайса
+			messages: make([]ChatMessage, 0, 100), // увеличил размер
 		}
 		s.rooms[init.GuildID] = room
 	}

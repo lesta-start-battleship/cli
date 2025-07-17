@@ -7,11 +7,11 @@ const (
 	GoogleCheckPath  = "auth/google/device/check"
 	YandexInitPath   = "auth/yandex/device/init"
 	YandexCheckPath  = "auth/yandex/device/check"
-	GetProfilePath   = "users/%d"
+	GetProfilePath   = "users/user/"
 	RefreshTokenPath = "auth/refresh_token/"
-	UpdateUserPath   = "users/%d"
-	DeleteUserPath   = "users/%d"
-	LogoutPath       = "users/logout/"
+	UpdateUserPath   = "users/user/%d/"
+	DeleteUserPath   = "users/user/%d/"
+	LogoutPath       = "users/user/logout/"
 	RegistrationPath = "auth/registration/"
 )
 
@@ -64,17 +64,13 @@ type DeviceAuthResponse struct {
 
 // DeviceCheckResponse - ответ на проверку статуса
 type DeviceCheckResponse struct {
-	Status        string           `json:"status"`                   // Статус: "pending", "authenticated", "expired", "denied"
-	TokenResponse *TokenResponse   `json:"token_response,omitempty"` // Токены, если авторизация успешна
-	User          *ProfileResponse `json:"user,omitempty"`           // Данные пользователя, если есть
-	Error         string           `json:"error,omitempty"`          // Описание ошибки, если есть
+	Status string           `json:"status"`         // Статус: "pending", "authenticated", "expired", "denied"
+	User   *ProfileResponse `json:"user,omitempty"` // Данные пользователя, если есть
 }
 
-type DeviceCheckResponse2 struct {
-	AccessToken  string           `json:"access_token,omitempty"` // Токен доступа, если авторизация успешна
-	RefreshToken string           `json:"refresh_token"`
-	Status       string           `json:"status"`
-	User         *ProfileResponse `json:"user,omitempty"` // Данные пользователя, если есть
+type UserInfoResponse struct {
+	Message string           `json:"message"`
+	User    *ProfileResponse `json:"user"`
 }
 
 // UpdateUserRequest - запрос на изменение данных пользователя

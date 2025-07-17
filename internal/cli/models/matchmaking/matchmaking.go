@@ -1,39 +1,45 @@
-package models
+package matchmaking
 
 import (
-	"fmt"
+	api "lesta-start-battleship/cli/internal/api/matchmaking"
 	"lesta-start-battleship/cli/internal/cli/ui"
+	"lesta-start-battleship/cli/internal/clientdeps"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const matchmakingUrl = "ws://37.9.53.32:80/matchmaking/%s"
+const matchTypesAmount = 3
 
-func formatMatchmakingUrl(matchType string) string {
-	return fmt.Sprintf(matchmakingUrl, matchType)
-}
+const (
+	randomSelected int = iota
+	rankedSelected
+	customSelected
+)
 
 type MatchmakingModel struct {
-	parent   tea.Model
-	id       int
-	username string
+	parent tea.Model
+
 	selected int
+
+	player  *clientdeps.PlayerInfo
+	clients *clientdeps.Client
 }
 
-func NewMatchmakingModel(parent tea.Model, id int, username string) *MatchmakingModel {
+func NewMatchmakingModel(parent tea.Model, player *clientdeps.PlayerInfo, clients *clientdeps.Client) *MatchmakingModel {
 	return &MatchmakingModel{
-		parent:   parent,
-		id:       id,
-		username: username,
+		parent: parent,
+
+		player:  player,
+		clients: clients,
 	}
 }
 
 func (m *MatchmakingModel) Init() tea.Cmd {
+	m.selected = 0
+
 	return nil
 }
-
-const matchTypesAmount = 4
 
 func (m *MatchmakingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -49,22 +55,23 @@ func (m *MatchmakingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case tea.KeyEnter:
 			switch m.selected {
-			case 0:
-				model := NewMatchmakingWaitScreenModel(m, m.username, "random")
+			case randomSelected:
+				model := NewMatchmakingWaitScreenModel(m, api.RandomMatchmaking, m.player, m.clients)
+
 				return model, model.Init()
-			case 1:
-				model := NewMatchmakingWaitScreenModel(m, m.username, "ranked")
+			case rankedSelected:
+				model := NewMatchmakingWaitScreenModel(m, api.RankedMatchmaking, m.player, m.clients)
+
 				return model, model.Init()
-			case 2:
-				return m, nil
-			case 3:
-				model := NewMatchmakingCustomMenuModel(m, m.username)
+			case customSelected:
+				model := NewMatchmakingCustomMenuModel(m, m.player, m.clients)
+
 				return model, model.Init()
 			}
 			return m, nil
 
 		case tea.KeyEsc:
-			return m.parent, nil
+			return m.parent, m.parent.Init()
 
 		case tea.KeyCtrlC:
 			return m, tea.Quit
@@ -74,20 +81,19 @@ func (m *MatchmakingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+var menuItems = [matchTypesAmount]string{
+	"Случайный",
+	"Рейтинговый",
+	"Кастомный",
+}
+
 func (m *MatchmakingModel) View() string {
 	var sb strings.Builder
 
 	sb.WriteString(ui.TitleStyle.Render("Морской Бой"))
 	sb.WriteString("\n\n")
-	sb.WriteString(ui.NormalStyle.Render("Пользователь: " + m.username))
+	sb.WriteString(ui.NormalStyle.Render("Пользователь: " + m.player.Name()))
 	sb.WriteString("\n\n")
-
-	menuItems := []string{
-		"Случайный",
-		"Рейтинговый",
-		"Гильдейский",
-		"Кастомный",
-	}
 
 	for i, item := range menuItems {
 		if i == m.selected {

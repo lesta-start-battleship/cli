@@ -30,5 +30,20 @@ var (
 
 	HelpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#888888")).Italic(true)
 
-	WindowWidth = 80
+	// Стили для магазина
+	PromotionStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFA500")).Bold(true)
+
+	SelectedTabStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF")).
+				Background(lipgloss.Color("#5A56E0")).Padding(0, 2)
+
+	NormalTabStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#A1A1A1")).Padding(0, 2)
+
+	// Стили для элементов
+	ItemNameStyle = lipgloss.NewStyle().Bold(true)
+
+	ItemPriceStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFD700"))
+
+	ItemDescStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#AAAAAA"))
+
+	ItemDetailStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#888888"))
 )
