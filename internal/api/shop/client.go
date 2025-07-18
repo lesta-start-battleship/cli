@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"lesta-start-battleship/cli/storage/token"
-	"log"
 	"net/http"
 	"net/url"
 	"time"
@@ -84,7 +83,6 @@ func (c *Client) GetProducts(ctx context.Context) ([]Product, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&productResp); err != nil {
 		return nil, fmt.Errorf("error decoding response: %w", err)
 	}
-	log.Println(resp.Body)
 
 	return productResp.Results, nil
 }
@@ -128,7 +126,6 @@ func (c *Client) GetPromotions(ctx context.Context) ([]Promotion, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&promotions); err != nil {
 		return nil, fmt.Errorf("error decoding response to []Promotion: %w", err)
 	}
-	log.Println(promotions)
 	return promotions, nil
 }
 
