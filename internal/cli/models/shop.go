@@ -317,12 +317,11 @@ func (m *ShopModel) loadItems() tea.Msg {
 		}
 		for _, p := range promotions {
 			items = append(items, ShopItem{
-				ID:          p.ID,
-				Name:        p.Name,
-				Description: p.IsActive,
-				Type:        "promotion",
-				StartDate:   p.StartDate,
-				EndDate:     p.EndDate,
+				ID:        p.ID,
+				Name:      p.Name,
+				Type:      "promotion",
+				StartDate: p.StartDate.Format("2006-01-02 15:04"),
+				EndDate:   p.EndDate.Format("2006-01-02 15:04"),
 			})
 		}
 
