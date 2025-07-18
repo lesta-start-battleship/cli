@@ -1,5 +1,7 @@
 package shop
 
+import "time"
+
 // Product - игровой предмет для покупки
 type Product struct {
 	ID          int               `json:"item_id"`
@@ -40,10 +42,10 @@ type Chest struct {
 type Promotion struct {
 	ID        int                `json:"id"`
 	Name      string             `json:"name"`
-	StartDate string             `json:"start_date"`
-	EndDate   string             `json:"end_date"`
+	StartDate time.Time          `json:"start_date"`
+	EndDate   time.Time          `json:"end_date"`
 	Duration  string             `json:"duration"`
-	IsActive  string             `json:"is_active"`
+	IsActive  bool               `json:"is_active"`
 	Chests    []Chest            `json:"chests"`
 	Products  []ProductPromotion `json:"products"`
 }
@@ -76,10 +78,4 @@ type ProductResponse struct {
 	Next     *string   `json:"next"`
 	Previous *string   `json:"previous"`
 	Results  []Product `json:"results"`
-}
-type PromotionResponse struct {
-	Count    int         `json:"count"`
-	Next     *string     `json:"next"`
-	Previous *string     `json:"previous"`
-	Results  []Promotion `json:"results"`
 }
