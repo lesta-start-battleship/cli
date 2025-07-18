@@ -111,7 +111,6 @@ func (c *Client) GetChests(ctx context.Context) ([]Chest, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&chestResp); err != nil {
 		return nil, fmt.Errorf("error decoding response: %w", err)
 	}
-	log.Println(resp.Body)
 
 	return chestResp.Results, nil
 }
