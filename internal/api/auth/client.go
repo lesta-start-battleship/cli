@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"time"
@@ -77,7 +76,6 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body interf
 			c.tokenStore.SetTokens(newAccess, newRefresh)
 		}
 	}
-	log.Println(c.tokenStore.GetToken())
 
 	// чтение тела ответа
 	responseBody, err := io.ReadAll(resp.Body)

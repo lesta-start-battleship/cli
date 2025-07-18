@@ -28,7 +28,7 @@ func NewMatchmakingCustomRoomModel(parent tea.Model, player *clientdeps.PlayerIn
 
 		roomId: "Wait...",
 
-		player: player,
+		player:   player,
 		wsClient: client,
 	}
 }
