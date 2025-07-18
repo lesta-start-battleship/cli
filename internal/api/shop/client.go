@@ -113,80 +113,24 @@ func (c *Client) GetChests(ctx context.Context) ([]Chest, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&chestResp); err != nil {
 		return nil, fmt.Errorf("error decoding response: %w", err)
 	}
-	log.Println(resp.Body)
 
 	return chestResp.Results, nil
 }
 
-// GetPromotions - получение списка акций
 func (c *Client) GetPromotions(ctx context.Context) ([]Promotion, error) {
 	resp, err := c.doRequest(ctx, "GET", "promotion/", nil)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-
-	_, refresh := c.tokenStore.GetToken()
-	if newAccess := resp.Header.Get("Authorization"); newAccess != "" {
-		c.tokenStore.SetTokens(newAccess, refresh)
-		if newRefresh := resp.Header.Get("Refresh-Token"); newRefresh != "" {
-			c.tokenStore.SetTokens(newAccess, newRefresh)
-		}
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
-	}
-
-	var promotionResp PromotionResponse
-	if err := json.NewDecoder(resp.Body).Decode(&promotionResp); err != nil {
-		return nil, fmt.Errorf("error decoding response: %w", err)
-	}
-
-	log.Println(resp.Body)
-
-	return promotionResp.Results, nil
-}
-
-/*
-func (c *Client) GetPromotions(ctx context.Context) ([]Promotion, error) {
-	resp, err := c.doRequest(ctx, "GET", "promotion/", nil)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var raw map[string]any
-	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
-		return nil, fmt.Errorf("error decoding response to map[string]any: %w", err)
-	}
-
-	results, ok := raw["results"].([]any)
-	if !ok {
-		// Если нет ключа results и raw — это массив (например, сервер вернул []Promotion)
-		if arr, isArr := any(raw).([]any); isArr {
-			results = arr
-		} else {
-			return nil, fmt.Errorf("unknown format: no 'results' array and not a top-level array")
-		}
-	}
 
 	var promotions []Promotion
-	for _, item := range results {
-		itemBytes, err := json.Marshal(item)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling item: %w", err)
-		}
-		var promo Promotion
-		if err := json.Unmarshal(itemBytes, &promo); err != nil {
-			return nil, fmt.Errorf("error unmarshaling item to Promotion: %w", err)
-		}
-		promotions = append(promotions, promo)
+	if err := json.NewDecoder(resp.Body).Decode(&promotions); err != nil {
+		return nil, fmt.Errorf("error decoding response to []Promotion: %w", err)
 	}
-
+	log.Println(promotions)
 	return promotions, nil
 }
-*/
 
 // BuyProduct - покупка предмета
 func (c *Client) BuyProduct(ctx context.Context, itemID int) error {
