@@ -123,24 +123,11 @@ func (c *Client) GetPromotions(ctx context.Context) ([]Promotion, error) {
 	}
 	defer resp.Body.Close()
 
-	_, refresh := c.tokenStore.GetToken()
-	if newAccess := resp.Header.Get("Authorization"); newAccess != "" {
-		c.tokenStore.SetTokens(newAccess, refresh)
-		if newRefresh := resp.Header.Get("Refresh-Token"); newRefresh != "" {
-			c.tokenStore.SetTokens(newAccess, newRefresh)
-		}
+	var promotions []Promotion
+	if err := json.NewDecoder(resp.Body).Decode(&promotions); err != nil {
+		return nil, fmt.Errorf("error decoding response to []Promotion: %w", err)
 	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
-	}
-
-	var promotionResp PromotionResponse
-	if err := json.NewDecoder(resp.Body).Decode(&promotionResp); err != nil {
-		return nil, fmt.Errorf("error decoding response: %w", err)
-	}
-
-	return promotionResp.Results, nil
+	return promotions, nil
 }
 
 // BuyProduct - покупка предмета
